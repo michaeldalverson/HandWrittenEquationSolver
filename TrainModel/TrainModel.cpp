@@ -277,6 +277,73 @@ std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
  
 }
 
+std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
+	std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
+	std::vector<std::vector<std::vector<std::vector<float>>>>,
+	std::vector<std::vector<std::vector<std::vector<float>>>>,
+	tuple<int, int>>>
+	pool_forward(std::vector<std::vector<std::vector<std::vector<float>>>> A_prev,
+		std::tuple<int, int> hparameters, std::string mode) {
+
+	// Retreive dimensions from A_prev's shape
+	int m = A_prev.size();
+	int n_H_prev = A_prev[0].size();
+	int n_W_prev = A_prev[0][0].size();
+	int n_C_prev = A_prev[0][0][0].size();
+
+	//Retrieve infromation from "hparameters"
+	int stride = std::get<0>(hparameters);
+	int f = std::get<1>(hparameters);
+
+	//Define the dimensions of the output
+	int n_H = int(1 + (n_H_prev - f) / stride);
+	int n_W = int(1 + (n_W_prev - f) / stride);
+	int n_C = n_C_prev;
+
+	//Initialize the output volume A with zeros
+	std::vector<std::vector<std::vector<std::vector<float>>>> A;
+	for (int i = 0; i < m; i++) {
+		std::vector<std::vector<std::vector<float>>> A1;
+		for (int j = 0; j < n_H; j++) {
+			std::vector<std::vector<float>> A2;
+			for (int k = 0; k < n_W; k++) {
+				std::vector<float> A3;
+				for (int l = 0; l < n_C; l++) {
+					A3.push_back(0);
+				}
+				A2.push_back(A3);
+			}
+			A1.push_back(A2);
+		}
+		A.push_back(A1);
+	}
+
+	for (int i = 0; i < m; i++) {
+		for (int h = 0; h < n_H; h++) {
+			for (int w = 0; w < n_W; w++) {
+				for (int c = 0; c < n_C; c++) {
+
+					int vert_start = h* stride;
+					int vert_end = h * stride + f;
+					int horiz_start = w * stride;
+					int horiz_end = w * stride + f;
+
+					std::vector<std::vector<std::vector<std::vector<float>>>> a_prev_slice;
+					for (int x = vert_start; x < vert_end; x++) {
+
+						for (int y = horiz_start; y < horiz_end; y++) {
+
+						}
+					}
+				}
+			}
+		}
+	}
+
+}
+
+
+
 
 int main() {
 	std::vector<std::vector<std::vector<std::vector<float>>>> foo;
