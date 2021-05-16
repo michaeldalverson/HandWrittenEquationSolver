@@ -1,1 +1,2 @@
 # HandWrittenEquationSolver
+The Handwritten Equation Solver will allow users to draw mathematical symbols on to the GUI provided once the program has been run. The symbols will then be entered into a neural network composed of custom-made convolutional and pooling layers (without TensorFlow or PyTorch). The neural network will attempt to recognize the mouse drawn symbol and input that into the equation. When finished, the user can press enter and the equation will be solved. The results will be provided to the user.
