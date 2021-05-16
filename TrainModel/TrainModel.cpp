@@ -13,7 +13,7 @@ void printArr(std::vector<std::vector<std::vector<std::vector<float>>>> arr) {
 			for (int k = 0; k < arr[0].size(); k++) { //size of n_W
 				std::vector<float> reX3;
 				for (int l = 0; l < arr[0][0].size(); l++) { //size of n_H
-					reX3.push_back(0);
+					reX3.push_back(0); 
 				}
 				reX2.push_back(reX3);
 			}
