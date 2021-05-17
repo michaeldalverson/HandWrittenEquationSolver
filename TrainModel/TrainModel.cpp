@@ -3,7 +3,15 @@
 #include <tuple>;
 using namespace std;
 
-void printArr(std::vector<std::vector<std::vector<std::vector<float>>>> arr) {
+void printArr2(vector<vector<float>> arr) {
+	for (int i = 0; i < arr.size(); i++) {
+		for (int j = 0; j < arr[0].size(); j++) {
+			cout << arr[i][j] << " ";
+		}
+		cout << "\n";
+	}
+}
+void printArr4(std::vector<std::vector<std::vector<std::vector<float>>>> arr) {
 	int numCount = 0;
 	std::vector<std::vector<std::vector<std::vector<float>>>> reX;
 	for (int i = 0; i < arr.size(); i++) { //size of m
@@ -279,8 +287,6 @@ std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
 
 std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
 	std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
-	std::vector<std::vector<std::vector<std::vector<float>>>>,
-	std::vector<std::vector<std::vector<std::vector<float>>>>,
 	tuple<int, int>>>
 	pool_forward(std::vector<std::vector<std::vector<std::vector<float>>>> A_prev,
 		std::tuple<int, int> hparameters, std::string mode) {
@@ -328,22 +334,409 @@ std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
 					int horiz_start = w * stride;
 					int horiz_end = w * stride + f;
 
-					std::vector<std::vector<std::vector<std::vector<float>>>> a_prev_slice;
+					std::vector<std::vector<float>> a_prev_slice;
 					for (int x = vert_start; x < vert_end; x++) {
-
+						std::vector<float> a_prev_slice1;
 						for (int y = horiz_start; y < horiz_end; y++) {
-
+							a_prev_slice1.push_back(A_prev[i][x][y][c]);
 						}
+						a_prev_slice.push_back(a_prev_slice1);
+					}
+
+					if (mode == "max"){
+						float max = 0;
+						for (int x = 0; x < a_prev_slice.size(); x++) {
+							for (int y = 0; y < a_prev_slice[0].size(); y++) {
+								if (a_prev_slice[x][y] > max) {
+									max = a_prev_slice[x][y];
+								}
+							}
+						}
+						A[i][h][w][c] = max;
+					}
+					else if (mode == "average") {
+						float sum = 0;
+						float count = 0;
+						for (int x = 0; x < a_prev_slice.size(); x++) {
+							for (int y = 0; y < a_prev_slice[0].size(); y++) {
+								sum = sum + a_prev_slice[x][y];
+								count = count + 1;
+							}
+						}
+						A[i][h][w][c] = sum / count;
 					}
 				}
 			}
 		}
 	}
 
+	std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
+		tuple<int, int>> cache{ A_prev, hparameters };
+
+	std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
+		std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
+		tuple<int, int>>> output{ A, cache };
+
+	return output;
 }
 
+std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>, 
+	std::vector<std::vector<std::vector<std::vector<float>>>>,
+	std::vector<std::vector<std::vector<std::vector<float>>>>>
+	conv_backward(std::vector<std::vector<std::vector<std::vector<float>>>> dZ,
+		std::tuple<std::vector<std::vector<std::vector<std::vector<float>>>>,
+		std::vector<std::vector<std::vector<std::vector<float>>>>,
+		vector<std::vector<std::vector<std::vector<float>>>>,
+		tuple<int, int>> cache) {
 
+	//Retrieve information from "cache"
+	vector<vector<vector<vector<float>>>> A_prev = get<0>(cache);
+	vector<vector<vector<vector<float>>>> W = get<1>(cache);
+	vector<vector<vector<vector<float>>>> b = get<2>(cache);
+	tuple<int, int> hparameters = get<3>(cache);
 
+	//Retrieve dimensions from A_prev's shape
+	int m = A_prev.size();
+	int n_H_prev = A_prev[0].size();
+	int n_W_prev = A_prev[0][0].size();
+	int n_C_prev = A_prev[0][0][0].size();
+
+	//Retrieve infromation from W's shape
+	int f = W.size();
+	int n_C = W[0][0][0].size();
+
+	//Retrieve information from "hparameters"
+	int stride = get<0>(hparameters);
+	int pad = get<1>(hparameters);
+
+	//Retrieve dimensions from dZ's shape
+	int n_H = dZ[0].size();
+	int n_W = dZ[0][0].size();
+
+	//Initialize dA_prev with all zeros
+	std::vector<std::vector<std::vector<std::vector<float>>>> dA_prev;
+	for (int i = 0; i < m; i++) {
+		std::vector<std::vector<std::vector<float>>> dA_prev1;
+		for (int j = 0; j < n_H_prev; j++) {
+			std::vector<std::vector<float>> dA_prev2;
+			for (int k = 0; k < n_W_prev; k++) {
+				std::vector<float> dA_prev3;
+				for (int l = 0; l < n_C_prev; l++) {
+					dA_prev3.push_back(0);
+				}
+				dA_prev2.push_back(dA_prev3);
+			}
+			dA_prev1.push_back(dA_prev2);
+		}
+		dA_prev.push_back(dA_prev1);
+	}
+
+	//Initialize dW with all zeros
+	std::vector<std::vector<std::vector<std::vector<float>>>> dW;
+	for (int i = 0; i < f; i++) {
+		std::vector<std::vector<std::vector<float>>> dW1;
+		for (int j = 0; j < f; j++) {
+			std::vector<std::vector<float>> dW2;
+			for (int k = 0; k < n_C_prev; k++) {
+				std::vector<float> dW3;
+				for (int l = 0; l < n_C; l++) {
+					dW3.push_back(0);
+				}
+				dW2.push_back(dW3);
+			}
+			dW1.push_back(dW2);
+		}
+		dW.push_back(dW1);
+	}
+
+	//Initialize db with all zeros
+	std::vector<std::vector<std::vector<std::vector<float>>>> db;
+	for (int i = 0; i < 1; i++) {
+		std::vector<std::vector<std::vector<float>>> db1;
+		for (int j = 0; j < 1; j++) {
+			std::vector<std::vector<float>> db2;
+			for (int k = 0; k < 1; k++) {
+				std::vector<float> db3;
+				for (int l = 0; l < n_C; l++) {
+					db3.push_back(0);
+				}
+				db2.push_back(db3);
+			}
+			db1.push_back(db2);
+		}
+		db.push_back(db1);
+	}
+
+	//Pad A_prev and dA_prev
+	vector<vector<vector<vector<float>>>> A_prev_pad = zero_pad(A_prev, pad);
+	vector<vector<vector<vector<float>>>> dA_prev_pad = zero_pad(dA_prev, pad);
+
+	for (int i = 0; i < m; i++) {
+
+		//Select ith training example from A_prev and dA_prev_pad
+		vector<vector<vector<float>>> a_prev_pad = A_prev_pad[i];
+		vector<vector<vector<float>>> da_prev_pad = dA_prev_pad[i];
+
+		for (int h = 0; h < n_H; h++) {
+			for (int w = 0; w < n_W; w++) {
+				for (int c = 0; c < n_C; c++) {
+
+					//Find the corners of the current "slice"
+					int vert_start = h;
+					int vert_end = vert_start + f;
+					int horiz_start = w;
+					int horiz_end = horiz_start + f;
+
+					//Use the corners to define the slice from a_prev_pad
+					vector<vector<vector<float>>> a_slice;
+					for (int x = vert_start; x < vert_end; x++) {
+						vector<vector<float>> a_slice1;
+						for (int y = horiz_start; y < horiz_end; y++) {
+							vector<float> a_slice2;
+							for (int z = 0; z < a_prev_pad[0][0].size(); z++) {
+								a_slice2.push_back(a_prev_pad[x][y][z]);
+							}
+							a_slice1.push_back(a_slice2);
+						}
+						a_slice.push_back(a_slice1);
+					}
+
+					//Update gradients for the window and the filter's parameters
+					std::vector<std::vector<std::vector<float>>> WZSlice;
+					for (int x = 0; x < n_H; x++) {
+						std::vector<std::vector<float>> WZSlice1;
+						for (int y = 0; y < n_W; y++) {
+							std::vector<float> WZSlice2;
+							for (int z = 0; z < n_C; z++) {
+								WZSlice2.push_back(W[x][y][z][c] * dZ[i][h][w][c]);
+							}
+							WZSlice1.push_back(WZSlice2);
+						}
+						WZSlice.push_back(WZSlice1);
+					}
+
+					for (int x = vert_start; x < vert_end; x++) {
+						for (int y = horiz_start; y < horiz_end; y++) {
+							for (int z = 0; z < da_prev_pad[0][0].size(); z++) {
+								da_prev_pad[x][y][z] = da_prev_pad[x][y][z] + WZSlice[x][y][z];
+							}
+						}
+					}
+
+					std::vector<std::vector<std::vector<float>>> aZSlice;
+					for (int x = 0; x < a_slice.size(); x++) {
+						std::vector<std::vector<float>> aZSlice1;
+						for (int y = 0; y < a_slice[0].size(); y++) {
+							std::vector<float> aZSlice2;
+							for (int z = 0; z < a_slice[0][0].size(); z++) {
+								aZSlice2.push_back(a_slice[x][y][z] * dZ[i][h][w][c]);
+							}
+							aZSlice1.push_back(aZSlice2);
+						}
+						aZSlice.push_back(aZSlice1);
+					}
+
+					for (int x = 0; x < dW.size(); x++) {
+						for (int y = 0; y < dW[0].size(); y++) {
+							for (int z = 0; z < dW[0][0].size(); z++) {
+								dW[x][y][z][c] = dW[x][y][z][c] + aZSlice[x][y][z];
+							}
+						}
+					}
+
+					for (int x = 0; x < db.size(); x++) {
+						for (int y = 0; y < db[0].size(); y++) {
+							for (int z = 0; z < db[0][0].size(); z++) {
+								db[x][y][z][c] = db[x][y][z][c] + dZ[i][h][w][c];
+							}
+						}
+					}
+				}
+			}
+		}
+		//Set the ith training example's dA_prev to the unpadded da_prev_pad
+		vector<vector<vector<float>>> da_prev_UNpad;
+		for (int x = pad; x < da_prev_pad.size() - pad; x++) {
+			vector<vector<float>> da_prev_UNpad1;
+			for (int y = pad; y < da_prev_pad[0].size() - pad; y++) {
+				vector<float> da_prev_UNpad2;
+				for (int z = 0; z < da_prev_pad[0][0].size(); z++) {
+					da_prev_UNpad2.push_back(da_prev_pad[x][y][z]);
+				}
+				da_prev_UNpad1.push_back(da_prev_UNpad2);
+			}
+			da_prev_UNpad.push_back(da_prev_UNpad1);
+		}
+
+		for (int x = 0; x < dA_prev[0].size(); x++) {
+			for (int y = 0; y < dA_prev[0][0].size(); y++) {
+				for (int z = 0; z < dA_prev[0][0][0].size(); z++) {
+					dA_prev[i][x][y][z] = da_prev_pad[x][y][z];
+				}
+			}
+		}
+	}
+
+	tuple<vector<vector<vector<vector<float>>>>,
+		vector<vector<vector<vector<float>>>>,
+		vector<vector<vector<vector<float>>>>> output{ dA_prev, dW, db };
+
+	return output;
+}
+
+vector<vector<float>> create_mask_from_window(vector<vector<float>> x) {
+	vector<vector<float>> mask;
+	float max = x[0][0];
+	for (int i = 0; i < x.size(); i++) {
+		for (int j = 0; j < x[0].size(); j++) {
+			if (x[i][j] > max) {
+				max = x[i][j];
+			}
+		}
+	}
+	for (int i = 0; i < x.size(); i++) {
+		vector<float> mask1;
+		for (int j = 0; j < x[0].size(); j++) {
+			if (x[i][j] == max) {
+				mask1.push_back(1);
+			}
+			else {
+				mask1.push_back(0);
+			}
+		}
+		mask.push_back(mask1);
+	}
+	return mask;
+
+}
+
+vector<vector<float>> distribute_value(float dz, tuple<int,int> shape) {
+	
+	//Retrieve dimensions from shape
+	int n_H = get<0>(shape);
+	int n_W = get<1>(shape);
+
+	//Compute the value to distribute on the matrix
+	float average = dz / (n_H * n_W);
+
+	//Create a matrix where every entry is the "average" value
+	vector<vector<float>> a;
+	for (int i = 0; i < n_H; i++) {
+		vector<float> a1;
+		for (int j = 0; j < n_W; j++) {
+			a1.push_back(average);
+		}
+		a.push_back(a1);
+	}
+
+	return a;
+}
+
+vector<vector<vector<vector<float>>>> pool_backward(vector<vector<vector<vector<float>>>> dA,
+	tuple<vector<vector<vector<vector<float>>>>,
+	tuple<int, int>> cache, string mode) {
+
+	//Retrieve information from cache
+	vector<vector<vector<vector<float>>>> A_prev = get<0>(cache);
+	tuple<int, int> hparameters = get<1>(cache);
+
+	//Retrieve hyperparameters from "hparameters"
+	int stride = get<0>(hparameters);
+	int f = get<1>(hparameters);
+
+	//Retrieve dimensions from A_prev's shape and dA's shape
+	int m = A_prev.size();
+	int n_H_prev = A_prev[0].size();
+	int n_W_prev = A_prev[0][0].size();
+	int n_C_prev = A_prev[0][0][0].size();
+
+	int n_H = dA[0].size();
+	int n_W = dA[0][0].size();
+	int n_C = dA[0][0][0].size();
+
+	//Initialize the output volume dA_prev with zeros
+	std::vector<std::vector<std::vector<std::vector<float>>>> dA_prev;
+	for (int i = 0; i < m; i++) {
+		std::vector<std::vector<std::vector<float>>> dA_prev1;
+		for (int j = 0; j < n_H_prev; j++) {
+			std::vector<std::vector<float>> dA_prev2;
+			for (int k = 0; k < n_W_prev; k++) {
+				std::vector<float> dA_prev3;
+				for (int l = 0; l < n_C_prev; l++) {
+					dA_prev3.push_back(0);
+				}
+				dA_prev2.push_back(dA_prev3);
+			}
+			dA_prev1.push_back(dA_prev2);
+		}
+		dA_prev.push_back(dA_prev1);
+	}
+
+	for (int i = 0; i < m; i++) {
+		//select training example from A_prev
+		vector<vector<vector<float>>> a_prev = A_prev[i];
+		for (int h = 0; h < n_H; h++) {
+			for (int w = 0; w < n_W; w++) {
+				for (int c = 0; c < n_C; c++) {
+
+					//Find the corners of the current "slice"
+					int vert_start = h;
+					int vert_end = vert_start + f;
+					int horiz_start = w;
+					int horiz_end = horiz_start + f;
+
+					//Compute the backward propagation in both modes
+					if (mode == "max") {
+						//Use the corners and "c" to define the current slice from a_prev
+						vector<vector<float>> a_prev_slice;
+						for (int x = vert_start; x < vert_end; x++) {
+							vector<float> a_prev_slice1;
+							for (int y = horiz_start; y < horiz_end; y++) {
+								a_prev_slice1.push_back(a_prev[x][y][c]);
+							}
+							a_prev_slice.push_back(a_prev_slice1);
+						}
+
+						//Create the mask from a_prev_slice
+						vector<vector<float>> mask = create_mask_from_window(a_prev_slice);
+
+						vector<vector<float>> maskdA;
+						for (int x = 0; x < mask.size(); x++) {
+							vector<float> maskdA1;
+							for (int y = 0; y < mask[0].size(); y++) {
+								maskdA1.push_back(mask[x][y] * dA[i][h][w][c]);
+							}
+							maskdA.push_back(maskdA1);
+						}
+
+						//Set dA_prev to be dA_prev + (the mask multiplied by the correct entry of dA)
+						for (int x = vert_start; x < vert_end; x++) {
+							for (int y = horiz_start; y < horiz_end; y++) {
+								dA_prev[i][x][y][c] = dA_prev[i][x][y][c] + maskdA[x][y];
+							}
+						}
+					}
+					else if (mode == "average") {
+						//Get the value a from dA
+						float da = dA[i][h][w][c];
+
+						//Define the shape of the filter as fxf
+						tuple<int, int> shape{ f, f };
+
+						vector<vector<float>> distributed = distribute_value(da, shape);
+
+						for (int x = vert_start; x < vert_end; x++) {
+							for (int y = horiz_start; y < horiz_end; y++) {
+								dA_prev[i][x][y][c] = dA_prev[i][x][y][c] + distributed[x][y];
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return dA_prev;
+}
 
 int main() {
 	std::vector<std::vector<std::vector<std::vector<float>>>> foo;
@@ -362,8 +755,12 @@ int main() {
 		}
 		foo.push_back(foo1);
 	}
-	std::vector<std::vector<std::vector<std::vector<float>>>> pad = zero_pad(foo, 0);
-	printArr(pad);
+	vector<vector<vector<vector<float>>>> pad = zero_pad(foo, 0);
+	printArr4(pad);
+
+	tuple<int, int> tup {2, 2};
+	vector<vector<float>> val = distribute_value(2, tup);
+	printArr2(val);
 
 
 }
