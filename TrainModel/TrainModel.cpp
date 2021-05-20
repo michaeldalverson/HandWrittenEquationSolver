@@ -1,6 +1,7 @@
 #include <vector>;
 #include <iostream>;
 #include <tuple>;
+#include <math.h>;
 using namespace std;
 
 void printArr2(vector<vector<float>> arr) {
@@ -655,13 +656,13 @@ vector<vector<vector<vector<float>>>> pool_backward(vector<vector<vector<vector<
 	int n_C = dA[0][0][0].size();
 
 	//Initialize the output volume dA_prev with zeros
-	std::vector<std::vector<std::vector<std::vector<float>>>> dA_prev;
+	vector<vector<vector<vector<float>>>> dA_prev;
 	for (int i = 0; i < m; i++) {
-		std::vector<std::vector<std::vector<float>>> dA_prev1;
+		vector<vector<vector<float>>> dA_prev1;
 		for (int j = 0; j < n_H_prev; j++) {
-			std::vector<std::vector<float>> dA_prev2;
+			vector<vector<float>> dA_prev2;
 			for (int k = 0; k < n_W_prev; k++) {
-				std::vector<float> dA_prev3;
+				vector<float> dA_prev3;
 				for (int l = 0; l < n_C_prev; l++) {
 					dA_prev3.push_back(0);
 				}
@@ -737,7 +738,167 @@ vector<vector<vector<vector<float>>>> pool_backward(vector<vector<vector<vector<
 	}
 	return dA_prev;
 }
+class AdamOptimizer {
+	private:
+		vector<vector<vector<vector<float>>>> m_dW;
+		vector<vector<vector<vector<float>>>> v_dW;
+		vector<vector<vector<vector<float>>>> m_db;
+		vector<vector<vector<vector<float>>>> v_db;
+		double beta1;
+		double beta2;
+		double eta;
+		double epsilon;
 
+	public:
+		AdamOptimizer(double eta, double beta1, double beta2, double epsilon,
+			vector<vector<vector<vector<float>>>> W, vector<vector<vector<vector<float>>>> b) {
+			for (int i = 0; i < W.size(); i++) {
+				vector<vector<vector<float>>> m_dW1;
+				vector<vector<vector<float>>> v_dW1;
+				for (int j = 0; j < W[0].size(); j++) {
+					vector<vector<float>> m_dW2;
+					vector<vector<float>> v_dW2;
+					for (int k = 0; k < W[0][0].size(); k++) {
+						vector<float> m_dW3;
+						vector<float> v_dW3;
+						for (int l = 0; l < W[0][0][0].size(); l++) {
+							m_dW3.push_back(0);
+							v_dW3.push_back(0);
+						}
+						m_dW2.push_back(m_dW3);
+						v_dW2.push_back(v_dW3);
+					}
+					m_dW1.push_back(m_dW2);
+					v_dW1.push_back(v_dW2);
+				}
+				m_dW.push_back(m_dW1);
+				v_dW.push_back(v_dW1);
+			}
+
+			for (int i = 0; i < b.size(); i++) {
+				vector<vector<vector<float>>> m_db1;
+				vector<vector<vector<float>>> v_db1;
+				for (int j = 0; j < b[0].size(); j++) {
+					vector<vector<float>> m_db2;
+					vector<vector<float>> v_db2;
+					for (int k = 0; k < b[0][0].size(); k++) {
+						vector<float> m_db3;
+						vector<float> v_db3;
+						for (int l = 0; l < b[0][0][0].size(); l++) {
+							m_db3.push_back(0);
+							v_db3.push_back(0);
+						}
+						m_db2.push_back(m_db3);
+						v_db2.push_back(v_db3);
+					}
+					m_db1.push_back(m_db2);
+					v_db1.push_back(v_db2);
+				}
+				m_db.push_back(m_db1);
+				v_db.push_back(v_db1);
+			}
+			this->beta1 = beta1;
+			this->beta2 = beta2;
+			this->eta = eta;
+			this->epsilon = epsilon;
+	}
+		tuple<vector<vector<vector<vector<float>>>>, vector<vector<vector<vector<float>>>>>
+			Update(double t, vector<vector<vector<vector<float>>>> W, vector<vector<vector<vector<float>>>> b, vector<vector<vector<vector<float>>>> dW, vector<vector<vector<vector<float>>>> db) {
+			for (int i = 0; i < dW.size(); i++) {
+				for (int j = 0; j < dW[0].size(); j++) {
+					for (int k = 0; k < dW[0][0].size(); k++) {
+						for (int l = 0; l < dW[0][0][0].size(); l++) {
+							m_dW[i][j][k][l] = (beta1 * m_dW[i][j][k][l]) + ((1 - beta1) * dW[i][j][k][l]);
+							v_dW[i][j][k][l] = (beta2 * m_dW[i][j][k][l]) + ((1 - beta2) * pow(dW[i][j][k][l],2));
+						}
+					}
+				}
+			}
+
+			for (int i = 0; i < db.size(); i++) {
+				for (int j = 0; j < db[0].size(); j++) {
+					for (int k = 0; k < db[0][0].size(); k++) {
+						for (int l = 0; l < db[0][0][0].size(); l++) {
+							m_db[i][j][k][l] = (beta1 * m_db[i][j][k][l]) + ((1 - beta1) * db[i][j][k][l]);
+							v_db[i][j][k][l] = (beta2 * m_db[i][j][k][l]) + ((1 - beta2) * pow(db[i][j][k][l],2));
+						}
+					}
+				}
+			}
+			vector<vector<vector<vector<float>>>> m_dW_corr;
+			vector<vector<vector<vector<float>>>> v_dW_corr;
+			for (int i = 0; i < dW.size(); i++) {
+				vector<vector<vector<float>>> m_dW_corr1;
+				vector<vector<vector<float>>> v_dW_corr1;
+				for (int j = 0; j < dW[0].size(); j++) {
+					vector<vector<float>> m_dW_corr2;
+					vector<vector<float>> v_dW_corr2;
+					for (int k = 0; k < dW[0][0].size(); k++) {
+						vector<float> m_dW_corr3;
+						vector<float> v_dW_corr3;
+						for (int l = 0; l < dW[0][0][0].size(); l++) {
+							m_dW_corr3.push_back(m_dW[i][j][k][l]/(1-pow(beta1,t)));
+							v_dW_corr3.push_back(v_dW[i][j][k][l] / (1 - pow(beta2, t)));
+						}
+						m_dW_corr2.push_back(m_dW_corr3);
+						v_dW_corr2.push_back(v_dW_corr3);
+					}
+					m_dW_corr1.push_back(m_dW_corr2);
+					v_dW_corr1.push_back(v_dW_corr2);
+				}
+				m_dW_corr.push_back(m_dW_corr1);
+				v_dW_corr.push_back(v_dW_corr1);
+			}
+
+			vector<vector<vector<vector<float>>>> m_db_corr;
+			vector<vector<vector<vector<float>>>> v_db_corr;
+			for (int i = 0; i < db.size(); i++) {
+				vector<vector<vector<float>>> m_db_corr1;
+				vector<vector<vector<float>>> v_db_corr1;
+				for (int j = 0; j < db[0].size(); j++) {
+					vector<vector<float>> m_db_corr2;
+					vector<vector<float>> v_db_corr2;
+					for (int k = 0; k < db[0][0].size(); k++) {
+						vector<float> m_db_corr3;
+						vector<float> v_db_corr3;
+						for (int l = 0; l < db[0][0][0].size(); l++) {
+							m_db_corr3.push_back(m_db[i][j][k][l] / (1 - pow(beta1, t)));
+							v_db_corr3.push_back(v_db[i][j][k][l] / (1 - pow(beta2, t)));
+						}
+						m_db_corr2.push_back(m_db_corr3);
+						v_db_corr2.push_back(v_db_corr3);
+					}
+					m_db_corr1.push_back(m_db_corr2);
+					v_db_corr1.push_back(v_db_corr2);
+				}
+				m_db_corr.push_back(m_db_corr1);
+				v_db_corr.push_back(v_db_corr1);
+			}
+
+			for (int i = 0; i < W.size(); i++) {
+				for (int j = 0; j < W[0].size(); j++) {
+					for (int k = 0; k < W[0][0].size(); k++) {
+						for (int l = 0; l < W[0][0][0].size(); l++) {
+							W[i][j][k][l] = W[i][j][k][l] - (this->eta * ((m_dW_corr[i][j][k][l] * sqrt(v_dW_corr[i][j][k][l])) + this->epsilon));
+						}
+					}
+				}
+			}
+
+			for (int i = 0; i < b.size(); i++) {
+				for (int j = 0; j < b[0].size(); j++) {
+					for (int k = 0; k < b[0][0].size(); k++) {
+						for (int l = 0; l < b[0][0][0].size(); l++) {
+							b[i][j][k][l] = b[i][j][k][l] - (this->eta * ((m_db_corr[i][j][k][l] * sqrt(v_db_corr[i][j][k][l])) + this->epsilon));
+						}
+					}
+				}
+			}
+		
+			tuple<vector<vector<vector<vector<float>>>>, vector<vector<vector<vector<float>>>>> output{ W,b };
+			return output;
+		}
+};
 int main() {
 	std::vector<std::vector<std::vector<std::vector<float>>>> foo;
 	for (int i = 0; i < 10; i++) {
